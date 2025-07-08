@@ -198,6 +198,17 @@ function App() {
         ctx.translate(zoomOrigin.x, zoomOrigin.y);
         ctx.scale(zoom, zoom);
         ctx.drawImage(imageObj, 0, 0, imageObj.width, imageObj.height);
+        // Apply brightness/contrast to the visible area
+        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let data = imageData.data;
+        const b = brightness / 100;
+        const c = contrast / 100;
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = Math.min(255, ((data[i] * b - 128) * c + 128));
+          data[i + 1] = Math.min(255, ((data[i + 1] * b - 128) * c + 128));
+          data[i + 2] = Math.min(255, ((data[i + 2] * b - 128) * c + 128));
+        }
+        ctx.putImageData(imageData, 0, 0);
         ctx.restore();
       }
       if (cropRect) {
@@ -221,7 +232,7 @@ function App() {
         ctx.restore();
       }
     }
-  }, [imageObj, cropRect, zoom, zoomOrigin, canvasSize]);
+  }, [imageObj, cropRect, zoom, zoomOrigin, canvasSize, brightness, contrast]);
 
   // Reset zoom on new image
   useEffect(() => {
@@ -278,35 +289,8 @@ function App() {
       }
     }
     ctx.putImageData(imageData, 0, 0);
-    // Update image state for further edits
-    setImage(canvas.toDataURL());
+    // Do NOT update setImage here
   };
-
-  // Apply brightness and contrast
-  useEffect(() => {
-    if (!imageObj || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(imageObj, 0, 0);
-    let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    let data = imageData.data;
-    // Brightness
-    const b = brightness / 100;
-    // Contrast
-    const c = contrast / 100;
-    for (let i = 0; i < data.length; i += 4) {
-      // Brightness
-      data[i] = Math.min(255, data[i] * b);
-      data[i + 1] = Math.min(255, data[i + 1] * b);
-      data[i + 2] = Math.min(255, data[i + 2] * b);
-      // Contrast
-      data[i] = Math.min(255, ((data[i] - 128) * c + 128));
-      data[i + 1] = Math.min(255, ((data[i + 1] - 128) * c + 128));
-      data[i + 2] = Math.min(255, ((data[i + 2] - 128) * c + 128));
-    }
-    ctx.putImageData(imageData, 0, 0);
-  }, [imageObj, brightness, contrast]);
 
   const handleBrightness = (e) => setBrightness(Number(e.target.value));
   const handleContrast = (e) => setContrast(Number(e.target.value));
@@ -334,26 +318,8 @@ function App() {
   }, [imageObj, canvasSize.width, canvasSize.height]);
 
   return (
-    <div className="editor-container">
-      <h1>Simple Image Editor</h1>
-      <div className="canvas-section">
-        {imageObj ? (
-          <canvas
-            ref={canvasRef}
-            className="main-image"
-            width={canvasSize.width}
-            height={canvasSize.height}
-            onMouseDown={handleCanvasMouseDown}
-            onMouseMove={handleCanvasMouseMove}
-            onMouseUp={handleCanvasMouseUp}
-            onWheel={handleCanvasWheel}
-            style={{ cursor: spacePressed ? (isPanning ? 'grabbing' : 'grab') : (imageObj ? 'crosshair' : 'default'), width: '100%', height: '100%' }}
-          />
-        ) : (
-          <div className="placeholder">No image uploaded</div>
-        )}
-      </div>
-      <div className="toolbar">
+    <>
+      <div className="toolbar-fixed">
         <button onClick={handleCrop} disabled={!cropRect}>Crop</button>
         <button onClick={() => applyFilter('grayscale')} disabled={!imageObj}>Grayscale</button>
         <button onClick={() => applyFilter('sepia')} disabled={!imageObj}>Sepia</button>
@@ -367,8 +333,6 @@ function App() {
           <input id="contrast-slider" type="range" min="0" max="200" value={contrast} onChange={handleContrast} disabled={!imageObj} />
         </div>
         <button onClick={handleDownload} disabled={!imageObj}>Download</button>
-      </div>
-      <div className="upload-section">
         <input
           type="file"
           accept="image/*"
@@ -378,7 +342,29 @@ function App() {
         />
         <button className="upload-btn" onClick={() => fileInputRef.current.click()}>Upload Image</button>
       </div>
-    </div>
+      <div className="editor-bg-simple">
+        <div className="editor-panel-simple">
+          <h1>Simple Image Editor</h1>
+          <div className="canvas-section">
+            {imageObj ? (
+              <canvas
+                ref={canvasRef}
+                className="main-image"
+                width={canvasSize.width}
+                height={canvasSize.height}
+                onMouseDown={handleCanvasMouseDown}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseUp={handleCanvasMouseUp}
+                onWheel={handleCanvasWheel}
+                style={{ cursor: spacePressed ? (isPanning ? 'grabbing' : 'grab') : (imageObj ? 'crosshair' : 'default'), width: '100%', height: '100%' }}
+              />
+            ) : (
+              <div className="placeholder">No image uploaded</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   )
 }
 
